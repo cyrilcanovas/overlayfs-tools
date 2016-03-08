@@ -24,4 +24,9 @@ int diff(const char* lowerdir, const char* upperdir, bool is_verbose);
  */
 int merge(const char* lowerdir, const char* upperdir, bool is_verbose, FILE* script_stream);
 
+/*
+ * feature function. will take very long time to complete. returns 0 on success
+ */
+int combine(const char* lowerdir, const char* upperdir,const char* combineddir, bool is_verbose, FILE* script_stream);
+
 #endif //OVERLAYFS_TOOLS_LOGIC_H

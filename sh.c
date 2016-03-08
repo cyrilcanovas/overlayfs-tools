@@ -6,11 +6,17 @@
 #include <time.h>
 #include "sh.h"
 
-FILE* create_shell_script(char *tmp_path_buffer) {
-    int tmp_file = mkstemps(tmp_path_buffer, 3); // the 3 is for suffix length (".sh")
-    if (tmp_file < 0) { return NULL; }
-    fchmod(tmp_file, S_IRWXU); // chmod to 0700
-    FILE* f = fdopen(tmp_file, "w");
+FILE* create_shell_script(char *tmp_path_buffer,bool create_tmp_file) {
+    FILE* f = NULL;
+    if (create_tmp_file) {
+	    int tmp_file = mkstemps(tmp_path_buffer, 3); // the 3 is for suffix length (".sh")
+	    if (tmp_file < 0) { return NULL; }
+	    fchmod(tmp_file, S_IRWXU); // chmod to 0700
+     	f = fdopen(tmp_file, "w");
+    }
+    else {
+    	f = fopen(tmp_path_buffer, "w");
+    }
     if (f == NULL) { return NULL; }
     fprintf(f, "#!/usr/bin/env bash\n");
     fprintf(f, "set -x\n");
@@ -40,6 +46,9 @@ int command(FILE *output, const char *command_format, ...) {
         if (command_format[i] == '%') {
             const char *s = va_arg(arg, char *);
             if (quote(s, output) < 0) { return -1; }
+        } else if (command_format[i] == '$') {
+            const char *s = va_arg(arg, char *);
+            if (fputs(s,output) <0) { return -1; }
         } else {
             if (fputc(command_format[i], output) == EOF) { return -1; }
         }

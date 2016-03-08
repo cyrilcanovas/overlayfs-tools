@@ -20,7 +20,7 @@ const char *ovl_opaque_xattr = "trusted.overlay.opaque"; // exact the same as in
 #define TRAILING_SLASH(status) ((file_type(status) == S_IFDIR) ? "/" : "")
 
 static inline mode_t file_type(const struct stat *status) {
-    return status->st_mode & S_IFMT;
+	return status->st_mode & S_IFMT;
 }
 
 static inline bool is_whiteout(const struct stat *status) {
@@ -29,6 +29,25 @@ static inline bool is_whiteout(const struct stat *status) {
 
 static inline mode_t permission_bits(const struct stat *status) { // not used yet. I haven't decided how to treat permission bit changes
     return status->st_mode & (S_IRWXU | S_IRWXG | S_IRWXO | S_ISVTX);
+}
+
+char * add_trailing_slash(char *dest,const char *src)
+{
+	if (src == NULL || dest == NULL)
+	{
+		return NULL;			
+	}
+	strcpy(dest,src);
+	int len = strlen(dest);
+	if (len > 0) {
+		if (dest[len-1] != '/') {
+			strcat(dest,"/");
+		}				
+	}
+	else {
+		strcat(dest,"/");
+	}
+	return dest;
 }
 
 int is_opaquedir(const char *path, bool *output) {
@@ -121,7 +140,7 @@ int symbolic_link_identical(const char *lower_path, const char *upper_path, bool
     return 0;
 }
 
-int vacuum_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int vacuum_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     bool opaque;
     if (is_opaquedir(upper_path, &opaque) < 0) { return -1; }
     if (opaque) { // TODO: sometimes removing opaque directory (and combine with lower directory) might be better
@@ -130,7 +149,7 @@ int vacuum_d(const char *lower_path, const char* upper_path, const size_t lower_
     return 0;
 }
 
-int vacuum_dp(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int vacuum_dp(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status == NULL) { return 0; } // lower does not exist
     if (file_type(lower_status) != S_IFDIR) { return 0; }
     if (!permission_identical(lower_status, upper_status)) { return 0; }
@@ -143,7 +162,7 @@ int vacuum_dp(const char *lower_path, const char* upper_path, const size_t lower
     return command(script_stream, "rmdir --ignore-fail-on-non-empty %", upper_path);
 }
 
-int vacuum_f(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int vacuum_f(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status == NULL) { return 0; } // lower does not exist
     if (file_type(lower_status) != S_IFREG) { return 0; }
     if (!permission_identical(lower_status, upper_status)) { return 0; }
@@ -155,7 +174,7 @@ int vacuum_f(const char *lower_path, const char* upper_path, const size_t lower_
     return command(script_stream, "rm %", upper_path);
 }
 
-int vacuum_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int vacuum_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status == NULL) { return 0; } // lower does not exist
     if (file_type(lower_status) != S_IFLNK) { return 0; }
     if (!permission_identical(lower_status, upper_status)) { return 0; }
@@ -201,7 +220,7 @@ int list_deleted_files(const char *path, size_t root_path_len, bool verbose) { /
     return fts_close(ftsp) || return_val;
 }
 
-int diff_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int diff_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status != NULL) {
         if (file_type(lower_status) == S_IFDIR) {
             bool opaque = false;
@@ -225,7 +244,7 @@ int diff_d(const char *lower_path, const char* upper_path, const size_t lower_ro
     return 0;
 }
 
-int diff_f(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int diff_f(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     bool identical;
     if (lower_status != NULL) {
         switch (file_type(lower_status)) {
@@ -252,7 +271,7 @@ int diff_f(const char *lower_path, const char* upper_path, const size_t lower_ro
     return 0;
 }
 
-int diff_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int diff_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     bool identical;
     if (lower_status != NULL) {
         switch (file_type(lower_status)) {
@@ -279,7 +298,7 @@ int diff_sl(const char *lower_path, const char* upper_path, const size_t lower_r
     return 0;
 }
 
-int diff_whiteout(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int diff_whiteout(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status != NULL) {
         if (file_type(lower_status) == S_IFDIR) {
             if (list_deleted_files(lower_path, lower_root_len, verbose) < 0) { return -1; }
@@ -290,7 +309,7 @@ int diff_whiteout(const char *lower_path, const char* upper_path, const size_t l
     return 0;
 }
 
-int merge_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int merge_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status != NULL) {
         if (file_type(lower_status) == S_IFDIR) {
             bool opaque = false;
@@ -311,7 +330,7 @@ int merge_d(const char *lower_path, const char* upper_path, const size_t lower_r
     return command(script_stream, "mv -T % %", upper_path, lower_path);
 }
 
-int merge_dp(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int merge_dp(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     if (lower_status != NULL) {
         if (file_type(lower_status) == S_IFDIR) {
             bool opaque = false;
@@ -324,17 +343,86 @@ int merge_dp(const char *lower_path, const char* upper_path, const size_t lower_
     return 0;
 }
 
-int merge_f_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int merge_f_sl(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     return command(script_stream, "rm -rf %", lower_path) || command(script_stream, "mv -T % %", upper_path, lower_path);
 }
 
-int merge_whiteout(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr) {
+int merge_whiteout(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
     return command(script_stream, "rm -r %", lower_path) || command(script_stream, "rm %", upper_path);
 }
 
-typedef int (*TRAVERSE_CALLBACK)(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr);
+struct extra_path {
+	char *path;
+	int path_len;
+};
 
-int traverse(const char *lower_root, const char *upper_root, bool verbose, FILE* script_stream, TRAVERSE_CALLBACK callback_d, TRAVERSE_CALLBACK callback_dp, TRAVERSE_CALLBACK callback_f, TRAVERSE_CALLBACK callback_sl, TRAVERSE_CALLBACK callback_whiteout) { // returns 0 on success
+int combine_f(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
+	struct extra_path *combined_path_root = (struct extra_path*) extra;
+	char combined_path[PATH_MAX];
+	strcpy(combined_path,combined_path_root->path);
+    if (upper_status != NULL) {
+        switch (file_type(upper_status)) {
+            case S_IFDIR:
+                break;
+            case S_IFREG:
+                strcpy(&combined_path[combined_path_root->path_len],&lower_path[lower_root_len]);
+                command(script_stream,"cp -f % %",upper_path,combined_path);
+                return 0;
+            case S_IFLNK:
+//                printf("Removed: %s\n", &lower_path[lower_root_len]);
+                break;
+            default:
+                fprintf(stderr, "File %s is a special file (device or pipe). We cannot handle that.\n", lower_path);
+                return -1;
+        }
+    }
+	return 0;    
+}
+
+int combine_d(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
+	struct extra_path *combined_path_root = (struct extra_path*) extra;
+	char combined_path[PATH_MAX] = "";
+	strcpy(combined_path,combined_path_root->path);
+	strcpy(&combined_path[combined_path_root->path_len],&lower_path[lower_root_len]);
+	if (lower_status == NULL) {
+		if (file_type(upper_status) == S_IFDIR) {
+			command(script_stream, "mkdir -p %", combined_path);
+			return 0;
+		}
+	}
+/*	if (lower_status != NULL) {
+        if (file_type(lower_status) == S_IFDIR) {
+            bool opaque = false;
+            if (is_opaquedir(upper_path, &opaque) < 0) { return -1; }
+            if (opaque) {
+                if (command(script_stream, "rm -r %", lower_path) < 0) { return -1; };
+            } else {
+                if (!permission_identical(lower_status, upper_status)) {
+                    command(script_stream, "chmod --reference % %", upper_path, lower_path);
+                }
+                return 0; // children must be recursed, and directory itself does not need to be printed
+            }
+        } else {
+            command(script_stream, "rm %", lower_path);
+        }
+    }
+    *fts_instr = FTS_SKIP;
+    return command(script_stream, "cp -T % %", upper_path, combined_dir);
+*/
+	return 0;
+}
+
+int combine_whiteout(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra) {
+	struct extra_path *combined_path_root = (struct extra_path*) extra;
+	char combined_path[PATH_MAX] = "";
+	strcpy(combined_path,combined_path_root->path);
+	strcpy(&combined_path[combined_path_root->path_len],&lower_path[lower_root_len]);
+    return command(script_stream, "rm -rf %", combined_path);
+}
+
+typedef int (*TRAVERSE_CALLBACK)(const char *lower_path, const char* upper_path, const size_t lower_root_len, const struct stat *lower_status, const struct stat *upper_status, bool verbose, FILE* script_stream, int *fts_instr,void *extra);
+
+int traverse(const char *lower_root, const char *upper_root, bool verbose, FILE* script_stream, TRAVERSE_CALLBACK callback_d, TRAVERSE_CALLBACK callback_dp, TRAVERSE_CALLBACK callback_f, TRAVERSE_CALLBACK callback_sl, TRAVERSE_CALLBACK callback_whiteout,void *extra) { // returns 0 on success
     FTSENT *cur;
     char *paths[2] = {(char *) upper_root, NULL };
     char lower_path[PATH_MAX];
@@ -385,7 +473,7 @@ int traverse(const char *lower_root, const char *upper_root, bool verbose, FILE*
                     break; // do not call callback in this case
                 }
             }
-            return_val = callback(lower_path, cur->fts_path, lower_root_len, lower_exist ? &lower_status : NULL, cur->fts_statp, verbose, script_stream, &fts_instr); // return_val must previously be 0
+            return_val = callback(lower_path, cur->fts_path, lower_root_len, lower_exist ? &lower_status : NULL, cur->fts_statp, verbose, script_stream, &fts_instr,extra); // return_val must previously be 0
             if (fts_instr) {
                 fts_set(ftsp, cur, fts_instr);
             }
@@ -396,13 +484,21 @@ int traverse(const char *lower_root, const char *upper_root, bool verbose, FILE*
 }
 
 int vacuum(const char* lowerdir, const char* upperdir, bool is_verbose, FILE* script_stream) {
-    return traverse(lowerdir, upperdir, is_verbose, script_stream, vacuum_d, vacuum_dp, vacuum_f, vacuum_sl, NULL);
+    return traverse(lowerdir, upperdir, is_verbose, script_stream, vacuum_d, vacuum_dp, vacuum_f, vacuum_sl, NULL,NULL);
 }
 
 int diff(const char* lowerdir, const char* upperdir, bool is_verbose) {
-    return traverse(lowerdir, upperdir, is_verbose, NULL, diff_d, NULL, diff_f, diff_sl, diff_whiteout);
+    return traverse(lowerdir, upperdir, is_verbose, NULL, diff_d, NULL, diff_f, diff_sl, diff_whiteout,NULL);
 }
 
 int merge(const char* lowerdir, const char* upperdir, bool is_verbose, FILE* script_stream) {
-    return traverse(lowerdir, upperdir, is_verbose, script_stream, merge_d, merge_dp, merge_f_sl, merge_f_sl, merge_whiteout);
+    return traverse(lowerdir, upperdir, is_verbose, script_stream, merge_d, merge_dp, merge_f_sl, merge_f_sl, merge_whiteout,NULL);
+}
+
+int combine(const char* lowerdir, const char* upperdir,const char* combineddir, bool is_verbose, FILE* script_stream) {
+	char dummy_0[PATH_MAX];
+	char dummy_1[PATH_MAX];
+	struct extra_path extra = { (char*) combineddir, strlen(combineddir) };
+	command(script_stream, "cp -rf $ %", strcat(add_trailing_slash(dummy_0,lowerdir),"*"),add_trailing_slash(dummy_1,combineddir));
+	return traverse(lowerdir, upperdir, is_verbose, script_stream, combine_d, NULL, combine_f, NULL, combine_whiteout,(void *)&extra);
 }
